@@ -159,6 +159,25 @@ document.addEventListener('DOMContentLoaded', function() {
         activeTimers = []; // Reset array
     }
 
+    // Function to attach click handlers to .cc elements
+    function attachClickHandlers(containerElement) {
+        const clickableElements = containerElement.querySelectorAll('.cc');
+        clickableElements.forEach(el => {
+            // Ensure the element doesn't already have a click listener to prevent duplicates
+            el.removeEventListener('click', handleCcClick);
+            el.addEventListener('click', handleCcClick);
+        });
+    }
+
+    function handleCcClick(e) {
+        const command = e.target.getAttribute('data-c');
+        if (command) {
+            stopAllAnimations(); // Stop any ongoing animations
+            iEl.value = command; // Set the input field with the command
+            handleCommand(command); // Execute the command
+        }
+    }
+
     // Unified typing animation utility with inline cursor handling
     function typeAnim(targetEl, html, cb, speed = 40, suppressBlankCursor = false, hideCursorOnDone = false) {
         stopAllAnimations(); // Stop any previous animations before starting a new one
@@ -504,36 +523,17 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             animate();
         } else if (c === 'help' || c.startsWith('help ')) {
-            typeAnim(o, helpText(c.slice(4).trim()), () => { /* Optional callback after help types */ }, 16, false, true); // Fast typing for help
+            typeAnim(o, helpText(c.slice(4).trim()), (typedDiv) => {
+                attachClickHandlers(typedDiv);
+            }, 16, false, true); // Fast typing for help
         } else if (c === 'about') {
             const aboutContent = 'Originally from Mars, currently trying to survive college on Planet Earth. After making the long journey across the solar system, I\'ve made it my mission to help advance Earth\'s technology to match the superior standards we\'ve achieved back home on the Red Planet.<br><br>I\'m passionate about technology, creativity, and learning new things—always exploring how to make life a little more interesting and fun. Whether it\'s building something new, solving a tricky problem, or just connecting with curious minds, I\'m always up for a challenge and a good conversation.<br><br>I\'m currently working on a few projects that I hope will make a positive impact, and I\'ll be updating this website soon with more details. If you\'re interested in tech, creativity, or just want to say hi, feel free to reach out!<br><br>Ready to join the adventure? You can find me here: <span class=\'cc\' data-c=\'contact\' tabindex=\'0\'>contact</span>';
             typeAnim(o, aboutContent, (typedAboutDiv) => { // Pass typed div to callback
-                // Add click handler for contact link after about content is typed
-                const contactLink = typedAboutDiv.querySelector(".cc[data-c='contact']"); // Search within the typed div
-                if (contactLink) {
-                    const clickHandler = function(e) {
-                        if (e.target === contactLink) {
-                            iEl.value = 'contact';
-                            handleCommand('contact');
-                            typedAboutDiv.removeEventListener('click', clickHandler); // Remove handler after use
-                        }
-                    };
-                    typedAboutDiv.addEventListener('click', clickHandler); // Add listener to the typed div
-                }
+                attachClickHandlers(typedAboutDiv);
             }, 16, false, true); // hideCursorOnDone: true
         } else if (c === 'contact') {
             typeAnim(o, '<div><span class=\'cc text-green-400\' data-c=\'instagram\' tabindex=\'0\' style=\'cursor:pointer\'>instagram</span>: <span class=\'text-white\'>get my instagram link</span><br><span class=\'cc text-green-400\' data-c=\'email\' tabindex=\'0\' style=\'cursor:pointer\'>email</span>: <span class=\'text-white\'>get my email address</span><br><br><span class=\'text-gray-400\'>For more information on a specific contact, type <span class=\'font-mono text-yellow-400\'>contact contact-type</span></span></div>', (typedContactDiv) => { // Pass typed div to callback
-                // Add click handler for contact subcommands after they are typed
-                const instagramLink = typedContactDiv.querySelector(".cc[data-c='instagram']"); // Search within the typed div
-                const emailLink = typedContactDiv.querySelector(".cc[data-c='email']"); // Search within the typed div
-                const clickHandler = function(e) {
-                    if (e.target === instagramLink) {
-                        handleInstagramRedirect(); // Call redirect function
-                    } else if (e.target === emailLink) {
-                        handleEmailCopy(); // Call email copy function
-                    }
-                };
-                typedContactDiv.addEventListener('click', clickHandler); // Add listener to the typed div
+                attachClickHandlers(typedContactDiv);
             });
         } else if (c === 'instagram' || c === 'contact instagram') {
             handleInstagramRedirect();
@@ -654,9 +654,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initial run intro animation
     function runIntro() {
         stopAllAnimations(); // Ensure no animations are running before starting intro
-        typeStep(o, introSteps, () => {
+        typeStep(o, introSteps, (finalDiv) => {
             animationInProgress = false;
             iEl.focus();
+            attachClickHandlers(finalDiv); // Attach handlers after intro is complete
         });
     }
 
@@ -682,7 +683,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }, 60, false, true); // Slower typing speed, hideCursorOnDone: true
             }
         } else {
-            onDone && onDone();
+            onDone && onDone(targetEl.lastChild); // Pass the final typed div to the onDone callback
         }
     }
 
@@ -708,8 +709,8 @@ document.addEventListener('DOMContentLoaded', function() {
         let menuHTML = `
             <div style='font-size:1.35em;font-weight:bold;margin-bottom:0.7em;text-align:center;letter-spacing:0.01em;color:#b5e853;'>Welcome to my blog</div>
             <div style='height:1.2em'></div>
-            <div><span class='text-green-400' style='font-weight:bold;margin-right:0.7em;'>1.</span><span class='text-white' style='font-weight:bold;'>Featured Blog</span></div>
-            <div><span class='text-green-400' style='font-weight:bold;margin-right:0.7em;'>2.</span><span class='text-white' style='font-weight:bold;'>Archives</span></div>
+            <div><span class='cc text-green-400' data-c='1' tabindex='0' style='font-weight:bold;margin-right:0.7em;cursor:pointer;'>1.</span><span class='text-white' style='font-weight:bold;'>Featured Blog</span></div>
+            <div><span class='cc text-green-400' data-c='2' tabindex='0' style='font-weight:bold;margin-right:0.7em;cursor:pointer;'>2.</span><span class='text-white' style='font-weight:bold;'>Archives</span></div>
             <div style='height:1.2em'></div>
             <div><span class='text-yellow-400' style='font-weight:bold;'>Enter choice:</span></div>
         `;
@@ -728,6 +729,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 iEl.addEventListener('keydown', menuInputHandler);
                 iEl.focus();
             }, 0);
+            attachClickHandlers(o.lastChild.previousElementSibling); // Attach handlers to the typed menu content
         }, 18, false, true); // hideCursorOnDone: true
     }
     function showBlogContent() {
@@ -794,7 +796,7 @@ document.addEventListener('DOMContentLoaded', function() {
         archiveDiv.className = 'font-mono';
         archiveDiv.style.maxWidth = '700px';
         archiveDiv.style.margin = '2em auto';
-        archiveDiv.innerHTML = `<div style='font-size:1.2em;font-weight:bold;margin-bottom:0.5em;'>Archives</div><div style='margin-bottom:1.5em'>  1. First Entry: A Personal Milestone and New Beginnings <span style='color:#aaa'>(${new Date().toLocaleDateString()})</span></div><div style='margin-top:2em;color:#888'>Enter number to view, or type <b>back</b> to return or <b>exit</b> to close.</div>`;
+        archiveDiv.innerHTML = `<div style='font-size:1.2em;font-weight:bold;margin-bottom:0.5em;'>Archives</div><div style='margin-bottom:1.5em'><span class='cc' data-c='1' tabindex='0' style='cursor:pointer;'>1.</span> First Entry: A Personal Milestone and New Beginnings <span style='color:#aaa'>(${new Date().toLocaleDateString()})</span></div><div style='margin-top:2em;color:#888'>Enter number to view, or type <b>back</b> to return or <b>exit</b> to close.</div>`;
         o.appendChild(archiveDiv); o.scrollTop = 0;
         iEl.value = '';
         iEl.removeAttribute('disabled');
@@ -809,6 +811,7 @@ document.addEventListener('DOMContentLoaded', function() {
             iEl.addEventListener('keydown', archiveHandler);
             iEl.focus();
         }, 0);
+        attachClickHandlers(archiveDiv); // Attach handlers to the archive content
     }
 
     runIntro(); // Start intro animation on page load
