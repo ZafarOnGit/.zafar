@@ -2,30 +2,534 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Terminal</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR Campus Navigation MVP</title>
+    <!-- Use Tailwind CSS for rapid, responsive styling and Font Awesome for icons -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="style.css">
-    <link rel="icon" type="image/svg+xml" href="terminal-icon.svg">
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Set font and background, ensuring no horizontal scrolling */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            overflow: hidden; /* Prevent scrolling on full-screen view */
+            transition: background-color 0.3s;
+            animation: fadeIn 1s ease-in-out;
+            position: relative;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Container for the camera feed and canvas overlay */
+        .ar-container {
+            position: fixed; /* Make the AR container fill the entire viewport */
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #000;
+        }
+
+        /* Video and canvas elements to fill the container perfectly */
+        .ar-container > * {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        #ar-canvas {
+            pointer-events: none; /* Allows clicks to pass through */
+        }
+        
+        /* Custom styling for the pulsing AR icon */
+        .ar-pulse-icon {
+            animation: pulse-ring 1.5s cubic-bezier(0.2, 0, 0.8, 1) infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.3); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+
+        /* Styling for the custom message box */
+        #message-box {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            backdrop-filter: blur(8px);
+            background-color: rgba(30, 41, 59, 0.8);
+            border-radius: 1.5rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Custom styling for buttons with gradients and effects */
+        .gradient-button {
+            background-image: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%);
+            transition: all 0.3s ease-in-out;
+            box-shadow: 0 4px 15px 0 rgba(60, 130, 246, 0.75);
+        }
+
+        .gradient-button:hover {
+            background-image: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            box-shadow: 0 10px 20px 0 rgba(60, 130, 246, 0.75);
+            transform: translateY(-2px) scale(1.02);
+        }
+
+        /* Add a slightly blurred background to the main panel */
+        #main-panel, header {
+            backdrop-filter: blur(5px);
+            background-color: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(71, 85, 105, 0.5);
+            z-index: 10; /* Ensure UI is on top of the camera feed */
+        }
+
+        /* Responsive UI for mobile */
+        @media (max-width: 768px) {
+            #main-panel {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                width: 100%;
+                border-radius: 1.5rem 1.5rem 0 0;
+                transform: translateY(100%);
+                transition: transform 0.5s ease-in-out;
+            }
+            #main-panel.active {
+                transform: translateY(0);
+            }
+            #toggle-ar-button {
+                position: fixed;
+                bottom: 2rem;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 20;
+            }
+            header {
+                font-size: 1rem;
+                padding: 1rem;
+                border-radius: 0 0 1.5rem 1.5rem;
+            }
+        }
+    </style>
 </head>
-<body class="text-sm md:text-base lg:text-lg h-screen min-h-0">
-    <header class="w-full bg-gray-800 text-gray-300 p-2 flex items-center justify-between shadow-lg sticky top-0 z-10">
-        <div class="flex space-x-2">
-            <div class="tb bg-red-500 hover:bg-red-600" aria-label="Close" tabindex="0"></div>
-            <div class="tb bg-yellow-500 hover:bg-yellow-600" aria-label="Minimize" tabindex="0"></div>
-            <div id="fullscreen-btn" class="tb bg-green-500 hover:bg-green-600" aria-label="Maximize" tabindex="0" title="Maximize"></div>
-        </div>
-        <span class="text-xs md:text-sm font-bold truncate">Terminal</span>
-        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+<body class="p-6 flex flex-col items-center justify-center min-h-screen">
+
+    <!-- AR Viewport Container (fills the whole screen) -->
+    <div class="ar-container">
+        <!-- Video element for the camera feed -->
+        <video id="camera-feed" playsinline class="bg-black"></video>
+        <!-- Canvas element for AR overlays -->
+        <canvas id="ar-canvas"></canvas>
+    </div>
+
+    <!-- App Title and Description (as an overlay) -->
+    <header class="w-full max-w-xl text-center mb-8 p-6 rounded-3xl shadow-2xl md:static">
+        <h1 class="text-3xl md:text-4xl font-extrabold text-white mb-2">AR Campus Navigator</h1>
+        <p class="text-gray-400 text-sm md:text-lg">See your destination overlaid on the real world.</p>
     </header>
-    <main class="flex-grow flex flex-col w-full h-0 min-h-0" id="main-terminal">
-        <div id="o" class="flex-grow p-4 overflow-y-auto min-h-0" aria-live="polite"></div>
-        <div class="terminal-input-bar">
-            <span id="p" class="mr-2">&gt;</span>
-            <input type="text" id="i" autofocus autocomplete="off" spellcheck="false" aria-label="Command input">
+
+    <!-- Start/Stop AR Button (floats for mobile) -->
+    <button id="toggle-ar-button" class="text-white font-bold py-3 px-8 rounded-full transition-all duration-300 transform shadow-lg gradient-button w-full max-w-xs md:w-auto md:static md:mt-auto">
+        <i class="fas fa-camera mr-2"></i> Start AR Experience
+    </button>
+    
+    <!-- Controls and Information Panel (as an overlay, slides up on mobile) -->
+    <main id="main-panel" class="w-full max-w-xl p-6 rounded-3xl shadow-2xl flex flex-col items-center gap-6 mt-auto">
+
+        <!-- Destination Selector -->
+        <div id="destination-selector" class="w-full hidden">
+            <p class="text-center text-gray-300 font-medium mb-3">Select a destination:</p>
+            <div class="grid grid-cols-2 gap-4">
+                <button data-poi="library" class="poi-button bg-gray-700 hover:bg-blue-600 text-white font-semibold py-3 rounded-xl transition-colors duration-200 shadow">
+                    <i class="fas fa-book mr-2"></i> Library
+                </button>
+                <button data-poi="cafeteria" class="poi-button bg-gray-700 hover:bg-blue-600 text-white font-semibold py-3 rounded-xl transition-colors duration-200 shadow">
+                    <i class="fas fa-utensils mr-2"></i> Cafeteria
+                </button>
+                <button data-poi="gym" class="poi-button bg-gray-700 hover:bg-blue-600 text-white font-semibold py-3 rounded-xl transition-colors duration-200 shadow">
+                    <i class="fas fa-dumbbell mr-2"></i> Gymnasium
+                </button>
+                <button data-poi="main-hall" class="poi-button bg-gray-700 hover:bg-blue-600 text-white font-semibold py-3 rounded-xl transition-colors duration-200 shadow">
+                    <i class="fas fa-school mr-2"></i> Main Hall
+                </button>
+            </div>
         </div>
     </main>
-    <script src="script.js"></script>
+    
+    <!-- Custom message box for user feedback -->
+    <div id="message-box" class="p-6 text-center max-w-sm">
+        <p id="message-text" class="text-lg mb-4"></p>
+        <button id="message-close" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-full transition-colors duration-300">Got it!</button>
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const toggleArButton = document.getElementById('toggle-ar-button');
+        const cameraFeed = document.getElementById('camera-feed');
+        const arCanvas = document.getElementById('ar-canvas');
+        const mainPanel = document.getElementById('main-panel');
+        const destinationSelector = document.getElementById('destination-selector');
+        const poiButtons = document.querySelectorAll('.poi-button');
+        const messageBox = document.getElementById('message-box');
+        const messageText = document.getElementById('message-text');
+        const messageClose = document.getElementById('message-close');
+        const ctx = arCanvas.getContext('2d');
+
+        // --- State Variables ---
+        let stream = null;
+        let isARActive = false;
+        let activePOI = null;
+        let path = [];
+        let pathIndex = 0;
+        const PLAYER_SPEED = 0.05; // Speed for linear interpolation
+        let lerpProgress = 0; // Progress along the current path segment
+
+        // --- Mock Campus Data (for MVP) ---
+        // A simplified campus grid. '0' is a path, '-1' is a wall, positive numbers are POIs.
+        const campusMap = [
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        ];
+
+        // POIs mapped to their grid coordinates
+        const pointsOfInterest = {
+            'library': { name: 'Library', gridX: 1, gridY: 1, color: '#3b82f6' },
+            'cafeteria': { name: 'Cafeteria', gridX: 8, gridY: 8, color: '#f59e0b' },
+            'gym': { name: 'Gymnasium', gridX: 5, gridY: 13, color: '#ef4444' },
+            'main-hall': { name: 'Main Hall', gridX: 0, gridY: 13, color: '#10b981' },
+        };
+
+        const START_POSITION = { gridX: 9, gridY: 0 }; // Starting position for the user
+
+        // --- Functions ---
+
+        /**
+         * Displays a custom message box to the user.
+         * @param {string} message The text to display in the message box.
+         */
+        function showMessage(message) {
+            messageText.textContent = message;
+            messageBox.style.display = 'block';
+        }
+
+        /**
+         * Hides the custom message box.
+         */
+        function hideMessage() {
+            messageBox.style.display = 'none';
+        }
+        
+        /**
+         * Calculates the interpolated position between two points.
+         * @param {object} p1 The starting point {x, y}.
+         * @param {object} p2 The ending point {x, y}.
+         * @param {number} t The interpolation factor (0.0 to 1.0).
+         * @returns {object} The interpolated position.
+         */
+        function lerp(p1, p2, t) {
+            return {
+                x: p1.x + (p2.x - p1.x) * t,
+                y: p1.y + (p2.y - p1.y) * t
+            };
+        }
+
+        /**
+         * The A* pathfinding algorithm.
+         * @param {object} start The starting point {gridX, gridY}.
+         * @param {object} end The destination {gridX, gridY}.
+         * @returns {array} An array of coordinates representing the path.
+         */
+        function findPath(start, end) {
+            const cols = campusMap[0].length;
+            const rows = campusMap.length;
+            const openSet = [];
+            const closedSet = new Set();
+            const cameFrom = new Map();
+
+            // Node structure for the algorithm
+            function Node(x, y, gScore, hScore, fScore) {
+                this.x = x;
+                this.y = y;
+                this.gScore = gScore; // Cost from start to this node
+                this.hScore = hScore; // Heuristic cost from this node to end
+                this.fScore = fScore; // gScore + hScore
+            }
+
+            // Heuristic function (Manhattan distance)
+            const heuristic = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+
+            const startNode = new Node(start.gridX, start.gridY, 0, heuristic(start, end), heuristic(start, end));
+            openSet.push(startNode);
+
+            while (openSet.length > 0) {
+                // Get the node with the lowest fScore
+                openSet.sort((a, b) => a.fScore - b.fScore);
+                const currentNode = openSet.shift();
+                
+                const currentKey = `${currentNode.x},${currentNode.y}`;
+                closedSet.add(currentKey);
+
+                if (currentNode.x === end.gridX && currentNode.y === end.gridY) {
+                    // Path found, reconstruct and return
+                    const path = [];
+                    let temp = currentNode;
+                    while (temp) {
+                        path.push({ x: temp.x, y: temp.y });
+                        temp = cameFrom.get(`${temp.x},${temp.y}`);
+                    }
+                    return path.reverse();
+                }
+
+                const neighbors = [
+                    {x: currentNode.x + 1, y: currentNode.y},
+                    {x: currentNode.x - 1, y: currentNode.y},
+                    {x: currentNode.x, y: currentNode.y + 1},
+                    {x: currentNode.x, y: currentNode.y - 1}
+                ];
+
+                for (const neighbor of neighbors) {
+                    const neighborKey = `${neighbor.x},${neighbor.y}`;
+                    if (neighbor.x < 0 || neighbor.x >= cols || neighbor.y < 0 || neighbor.y >= rows || campusMap[neighbor.y][neighbor.x] === -1 || closedSet.has(neighborKey)) {
+                        continue;
+                    }
+
+                    const tentativeGScore = currentNode.gScore + 1;
+
+                    let neighborNode = openSet.find(n => n.x === neighbor.x && n.y === neighbor.y);
+
+                    if (!neighborNode) {
+                        neighborNode = new Node(neighbor.x, neighbor.y, tentativeGScore, heuristic(neighbor, end), tentativeGScore + heuristic(neighbor, end));
+                        cameFrom.set(neighborKey, currentNode);
+                        openSet.push(neighborNode);
+                    } else if (tentativeGScore < neighborNode.gScore) {
+                        cameFrom.set(neighborKey, currentNode);
+                        neighborNode.gScore = tentativeGScore;
+                        neighborNode.fScore = tentativeGScore + neighborNode.hScore;
+                    }
+                }
+            }
+            return []; // No path found
+        }
+
+        /**
+         * Initializes the camera feed and starts the AR experience.
+         */
+        async function startAR() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' }
+                });
+                cameraFeed.srcObject = stream;
+                cameraFeed.onloadedmetadata = () => {
+                    cameraFeed.play();
+                    // Set canvas to the size of the window for a full-screen AR experience
+                    arCanvas.width = window.innerWidth;
+                    arCanvas.height = window.innerHeight;
+                    
+                    isARActive = true;
+                    toggleArButton.textContent = 'Stop AR Experience';
+                    toggleArButton.classList.remove('gradient-button');
+                    toggleArButton.classList.add('bg-red-600', 'hover:bg-red-700', 'shadow');
+                    
+                    // Show the destination selector and animate it
+                    mainPanel.classList.add('active');
+                    toggleArButton.classList.add('md:static');
+
+                    showMessage("AR is active! Select a destination to find a path.");
+                    animateAR();
+                };
+            } catch (err) {
+                console.error("Error accessing the camera: ", err);
+                showMessage("Could not access your camera. Please check permissions and try again.");
+            }
+        }
+
+        /**
+         * Stops the camera feed and AR experience.
+         */
+        function stopAR() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            cameraFeed.srcObject = null;
+            isARActive = false;
+            activePOI = null;
+            path = [];
+            pathIndex = 0;
+            ctx.clearRect(0, 0, arCanvas.width, arCanvas.height);
+            
+            // Hide the destination selector with animation
+            mainPanel.classList.remove('active');
+            toggleArButton.classList.remove('md:static');
+
+            toggleArButton.textContent = 'Start AR Experience';
+            toggleArButton.classList.remove('bg-red-600', 'hover:bg-red-700', 'shadow');
+            toggleArButton.classList.add('gradient-button');
+            poiButtons.forEach(button => button.classList.remove('bg-blue-600'));
+        }
+
+        /**
+         * The main animation loop for the AR overlays.
+         */
+        function animateAR() {
+            if (!isARActive) return;
+
+            // Clear the canvas for the next frame
+            ctx.clearRect(0, 0, arCanvas.width, arCanvas.height);
+
+            // Animate the path and player if a destination is selected
+            if (activePOI && path.length > 0) {
+                const gridSizeX = arCanvas.width / campusMap[0].length;
+                const gridSizeY = arCanvas.height / campusMap.length;
+
+                // Move the player along the path smoothly
+                lerpProgress += PLAYER_SPEED;
+                if (lerpProgress >= 1) {
+                    lerpProgress = 0;
+                    pathIndex++;
+                }
+
+                // Check for end of path
+                if (pathIndex >= path.length - 1) {
+                    showMessage(`You have arrived at the ${pointsOfInterest[activePOI].name}!`);
+                    activePOI = null;
+                    path = [];
+                    lerpProgress = 0;
+                    pathIndex = 0;
+                }
+
+                // Draw the path up to the current player position
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(60, 130, 246, 0.9)';
+                ctx.lineWidth = 10;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                
+                const startPoint = {
+                    x: path[0].x * gridSizeX + gridSizeX / 2,
+                    y: path[0].y * gridSizeY + gridSizeY / 2
+                };
+                ctx.moveTo(startPoint.x, startPoint.y);
+                
+                for (let i = 1; i < pathIndex; i++) {
+                    const nextPoint = {
+                        x: path[i].x * gridSizeX + gridSizeX / 2,
+                        y: path[i].y * gridSizeY + gridSizeY / 2
+                    };
+                    ctx.lineTo(nextPoint.x, nextPoint.y);
+                }
+
+                // Draw to the current interpolated position
+                if (path.length > 1) {
+                    const currentSegStart = path[pathIndex];
+                    const currentSegEnd = path[pathIndex + 1];
+                    const currentLerpPoint = lerp(
+                        { x: currentSegStart.x * gridSizeX + gridSizeX / 2, y: currentSegStart.y * gridSizeY + gridSizeY / 2 },
+                        { x: currentSegEnd.x * gridSizeX + gridSizeX / 2, y: currentSegEnd.y * gridSizeY + gridSizeY / 2 },
+                        lerpProgress
+                    );
+                    ctx.lineTo(currentLerpPoint.x, currentLerpPoint.y);
+                }
+                ctx.stroke();
+
+                // Draw the destination POI marker
+                const dest = pointsOfInterest[activePOI];
+                const destX = dest.gridX * gridSizeX + gridSizeX / 2;
+                const destY = dest.gridY * gridSizeY + gridSizeY / 2;
+
+                ctx.beginPath();
+                const pulseRadius = 25 + 10 * Math.sin(Date.now() * 0.005);
+                ctx.arc(destX, destY, pulseRadius, 0, 2 * Math.PI);
+                ctx.strokeStyle = `rgba(255, 255, 255, 0.5)`;
+                ctx.lineWidth = 4;
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(destX, destY, 25, 0, 2 * Math.PI);
+                ctx.fillStyle = dest.color;
+                ctx.fill();
+
+                // Draw the current position (player)
+                const currentPos = path[pathIndex];
+                const playerX = currentPos.x * gridSizeX + gridSizeX / 2;
+                const playerY = currentPos.y * gridSizeY + gridSizeY / 2;
+
+                ctx.beginPath();
+                ctx.arc(playerX, playerY, 15, 0, 2 * Math.PI);
+                ctx.fillStyle = 'white';
+                ctx.fill();
+            }
+
+            // Request the next frame
+            requestAnimationFrame(animateAR);
+        }
+
+        // --- Event Listeners ---
+
+        // Toggle AR on button click
+        toggleArButton.addEventListener('click', () => {
+            if (isARActive) {
+                stopAR();
+            } else {
+                startAR();
+            }
+        });
+
+        // Toggle POI visibility on button click
+        poiButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const poiKey = button.dataset.poi;
+                if (activePOI === poiKey) {
+                    activePOI = null;
+                    path = [];
+                    pathIndex = 0;
+                    button.classList.remove('bg-blue-600');
+                    button.classList.add('bg-gray-700');
+                    showMessage("Navigation cancelled.");
+                } else {
+                    activePOI = poiKey;
+                    poiButtons.forEach(btn => btn.classList.remove('bg-blue-600'));
+                    button.classList.add('bg-blue-600');
+                    
+                    const destination = pointsOfInterest[poiKey];
+                    path = findPath(START_POSITION, { gridX: destination.gridX, gridY: destination.gridY });
+                    pathIndex = 0;
+                    lerpProgress = 0;
+                    showMessage(`Calculating a path to the ${destination.name}...`);
+                }
+            });
+        });
+
+        // Close the custom message box
+        messageClose.addEventListener('click', hideMessage);
+
+        // Resize the canvas when the window resizes to maintain responsiveness
+        window.addEventListener('resize', () => {
+            if (isARActive) {
+                arCanvas.width = window.innerWidth;
+                arCanvas.height = window.innerHeight;
+            }
+        });
+
+    </script>
 </body>
 </html>
