@@ -1,128 +1,41 @@
-<!-- 
-    This is a web-based AR application example for indoor navigation using AR.js and A-Frame.
-    It demonstrates the fundamental concept of marker-based augmented reality with a step-by-step guided workflow.
-    
-    The application will guide you to:
-    1. Confirm you are ready to use the marker.
-    2. Point your camera at the 'Hiro' marker.
-    3. Confirm the marker has been detected before the 3D arrow appears.
-  
-    How to use:
-    1. Open this file on a web server or with a simple server (e.g., Python's `http.server`).
-    2. Visit the page on your smartphone or webcam-equipped device.
-    3. Follow the on-screen instructions and point your camera at the 'Hiro' marker.
-  -->
-  <!DOCTYPE html>
-  <html lang="en">
-  <head>
-      <meta charset="UTF-8">
-      <title>AR.js Indoor Navigation Starter</title>
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-      <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-      <style>
-          body { margin: 0; overflow: hidden; font-family: sans-serif; }
-          #ui-overlay {
-              position: fixed;
-              top: 0;
-              left: 0;
-              width: 100%;
-              height: 100%;
-              display: flex;
-              flex-direction: column;
-              justify-content: center;
-              align-items: center;
-              background-color: rgba(0, 0, 0, 0.7);
-              color: white;
-              z-index: 100;
-              text-align: center;
-              padding: 20px;
-          }
-          #ui-overlay h1 {
-              font-size: 2em;
-              margin-bottom: 20px;
-          }
-          #ui-overlay button {
-              background-color: #F33;
-              color: white;
-              border: none;
-              padding: 15px 30px;
-              border-radius: 50px;
-              font-size: 1.2em;
-              cursor: pointer;
-              transition: background-color 0.3s;
-          }
-          #ui-overlay button:hover {
-              background-color: #D22;
-          }
-      </style>
-  </head>
-  <body>
-  
-      <!-- A-Frame scene with AR.js integration -->
-      <a-scene embedded arjs='sourceType: webcam; debugUIEnabled: true;'>
-          <a-marker id="hiro-marker" preset='hiro'>
-              <!--
-                The 3D object to display on top of the marker.
-                This is initially hidden and will become visible after confirmation.
-              -->
-              <a-entity id="ar-arrow" visible="false">
-                  <a-cone position="0 0.5 0" radius-bottom="0.5" radius-top="0" height="1" color="#F33"></a-cone>
-                  <a-box position="0 0.1 0" scale="0.25 1 0.25" color="#F33"></a-box>
-              </a-entity>
-          </a-marker>
-          <a-entity camera></a-entity>
-      </a-scene>
-  
-      <!-- UI Overlay for step-by-step instructions -->
-      <div id="ui-overlay">
-          <h1 id="ui-message">Step 1: Confirm you are ready.</h1>
-          <button id="ui-button">Start</button>
-      </div>
-  
-      <script>
-          document.addEventListener('DOMContentLoaded', () => {
-              const uiOverlay = document.getElementById('ui-overlay');
-              const uiMessage = document.getElementById('ui-message');
-              const uiButton = document.getElementById('ui-button');
-              const hiroMarker = document.getElementById('hiro-marker');
-              const arArrow = document.getElementById('ar-arrow');
-  
-              let markerDetected = false;
-  
-              // Listen for marker detection events
-              hiroMarker.addEventListener('markerFound', () => {
-                  if (uiMessage.textContent === 'Step 2: Point your camera at the Hiro marker.') {
-                      markerDetected = true;
-                      uiMessage.textContent = 'Marker Detected! Press "Confirm" to display the arrow.';
-                      uiButton.textContent = 'Confirm';
-                  }
-              });
-  
-              hiroMarker.addEventListener('markerLost', () => {
-                  if (markerDetected && uiButton.textContent !== 'Start') {
-                      // Reset if the marker is lost before confirmation
-                      markerDetected = false;
-                      uiMessage.textContent = 'Step 2: Point your camera at the Hiro marker.';
-                      uiButton.textContent = 'Looking...';
-                  }
-              });
-  
-              // Handle button clicks to advance the workflow
-              uiButton.addEventListener('click', () => {
-                  if (uiButton.textContent === 'Start') {
-                      // Step 1: User confirms readiness
-                      uiMessage.textContent = 'Step 2: Point your camera at the Hiro marker.';
-                      uiButton.textContent = 'Looking...';
-                      uiButton.disabled = true;
-                  } else if (uiButton.textContent === 'Confirm' && markerDetected) {
-                      // Step 3: User confirms detection
-                      uiOverlay.style.display = 'none'; // Hide the UI
-                      arArrow.setAttribute('visible', 'true'); // Show the AR object
-                  }
-              });
-          });
-      </script>
-  </body>
-  </html>
-  
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirecting...</title>
+    <!-- This meta tag will automatically redirect the user to the specified URL after a few seconds. -->
+    <meta http-equiv="refresh" content="3; url=https://d.mattercraft-live.io/9a9cc6cc/index.html?pid=af3581eac7f84e6e9a18e218041c7b80">
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            text-align: center;
+        }
+        .container {
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Redirecting...</h1>
+        <p>If you are not redirected automatically, please <a href="https://d.mattercraft-live.io/9a9cc6cc/index.html?pid=af3581eac7f84e6e9a18e218041c7b80">click here</a>.</p>
+    </div>
+</body>
+</html>
